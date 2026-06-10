@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { IDR, avgP, condPill, rarShort, srcLabel } from './utils';
 import { toast } from 'react-toastify';
 
-const Collection = ({ cards, onEditCard, onDeleteCard, onOpenAddModal, onOpenLightbox, onImportExcel }) => {
+const Collection = ({ cards, onEditCard, onDeleteCard, onOpenAddModal, onOpenLightbox, onImportExcel, backendOnline }) => {
   const [search, setSearch] = useState('');
   const [langFilter, setLangFilter] = useState('');
   const [condFilter, setCondFilter] = useState('');
@@ -75,6 +75,67 @@ const Collection = ({ cards, onEditCard, onDeleteCard, onOpenAddModal, onOpenLig
   const handleExcelFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (backendOnline === false) {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const XLSX = await import('xlsx');
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+          console.log(`Importing ${rows.length} cards locally from Excel...`);
+
+          const parsePrice = (p) => {
+            if (!p) return 0;
+            const s = String(p).replace(/[^0-9]/g, '');
+            return parseFloat(s) || 0;
+          };
+
+          const localData = localStorage.getItem('pv_local_cards');
+          let localCards = localData ? JSON.parse(localData) : [];
+
+          const newCards = rows.map((row, idx) => ({
+            id: Date.now() + idx,
+            name: row['Card Name'] || row.name || 'Unknown',
+            pokemon: row['Pokemon Name'] || row.pokemon || '',
+            set: row['Set Name'] || row.set || 'Manual Import',
+            cardnum: row['Card Number'] || row.cardnum || '',
+            setcode: row['Set Code'] || row.setcode || '',
+            rarity: row['Rarity'] || row.rarity || 'Common',
+            lang: row['Language'] || row.lang || 'Japanese',
+            cond: row['Condition'] || row.cond || 'RAW - Near Mint',
+            qty: parseInt(row['Quantity'] || row.qty) || 1,
+            buy: parsePrice(row['Purchase Price'] || row.buy),
+            notes: row['Notes'] || row.notes || '',
+            photos: [],
+            links: [],
+            tcgp: 0,
+            cardm: 0,
+            pchrt: 0,
+            local: 0,
+            collectr: 0,
+            snkrdunk: 0,
+            ebay: 0,
+            cardtell: 0
+          }));
+
+          localCards = [...newCards, ...localCards];
+          localStorage.setItem('pv_local_cards', JSON.stringify(localCards));
+          
+          toast.success(`Successfully imported ${newCards.length} cards locally!`);
+          if (onImportExcel) onImportExcel();
+        } catch (err) {
+          console.error(err);
+          toast.error('Failed to parse Excel file locally.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
     try {

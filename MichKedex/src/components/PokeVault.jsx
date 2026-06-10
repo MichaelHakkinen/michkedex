@@ -27,6 +27,44 @@ const PokeVault = () => {
 
   // Fetch all cards from Express/MySQL backend
   const fetchCards = useCallback(async () => {
+    if (backendOnline === null) return;
+    if (backendOnline === false) {
+      try {
+        const localData = localStorage.getItem('pv_local_cards');
+        const data = localData ? JSON.parse(localData) : [];
+        setCards(data);
+
+        const rate = usdToIdr || 16000;
+        const isUSD = (localStorage.getItem('pv_currency') || 'IDR') === 'USD';
+
+        // Calculate current total portfolio value
+        const totalVal = data.reduce((sum, c) => {
+          const pPchrt = isUSD ? (parseFloat(c.pchrt) || 0) : (parseFloat(c.pchrt) || 0) * rate;
+          const pCollectr = isUSD ? (parseFloat(c.collectr) || 0) : (parseFloat(c.collectr) || 0) * rate;
+          const pCardtell = isUSD ? (parseFloat(c.cardtell) || 0) / rate : (parseFloat(c.cardtell) || 0);
+
+          const prices = [pPchrt, pCollectr, pCardtell].filter(x => x > 0);
+          const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+          return sum + avg * (c.quantity || c.qty || 1);
+        }, 0);
+
+        // Append a real timestamped snapshot to rolling history (persisted in sessionStorage)
+        const now = new Date();
+        const label = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const newPoint = { time: label, value: totalVal, ts: now.getTime() };
+
+        const stored = sessionStorage.getItem('pv_history');
+        let rollingHistory = stored ? JSON.parse(stored) : [];
+        rollingHistory.push(newPoint);
+        if (rollingHistory.length > 30) rollingHistory = rollingHistory.slice(-30);
+        sessionStorage.setItem('pv_history', JSON.stringify(rollingHistory));
+        setHistory(rollingHistory);
+      } catch (err) {
+        console.error('Failed to load cards from localStorage:', err);
+      }
+      return;
+    }
+
     try {
       const res = await fetch('http://localhost:5000/api/cards');
       if (res.ok) {
@@ -63,7 +101,7 @@ const PokeVault = () => {
     } catch (err) {
       console.error('Failed to fetch cards from server:', err);
     }
-  }, [usdToIdr]);
+  }, [usdToIdr, backendOnline]);
 
   // Check if backend is reachable, then load exchange rate
   useEffect(() => {
@@ -83,12 +121,14 @@ const PokeVault = () => {
           setLiveIndicator('Connected');
         } else {
           setBackendOnline(false);
-          setLiveIndicator('Offline');
+          setLiveIndicator('Local Storage');
+          setCurrentPage('portfolio');
         }
       } catch (err) {
         setBackendOnline(false);
-        setLiveIndicator('Offline');
-        console.info('Backend not reachable — running in Pokédex-only mode.');
+        setLiveIndicator('Local Storage');
+        setCurrentPage('portfolio');
+        console.info('Backend not reachable — running in local storage mode.');
       }
     };
 
@@ -136,6 +176,38 @@ const PokeVault = () => {
 
   // CRUD operation handlers
   const handleSaveCard = async (cardData) => {
+    if (backendOnline === false) {
+      try {
+        const localData = localStorage.getItem('pv_local_cards');
+        let localCards = localData ? JSON.parse(localData) : [];
+        
+        if (cardData.id) {
+          // Edit
+          localCards = localCards.map(c => c.id === cardData.id ? cardData : c);
+          toast.success('Card updated locally!');
+        } else {
+          // Create
+          const newCard = {
+            ...cardData,
+            id: Date.now()
+          };
+          localCards.push(newCard);
+          toast.success('Card added locally!');
+        }
+        
+        localStorage.setItem('pv_local_cards', JSON.stringify(localCards));
+        setCards(localCards);
+        
+        await fetchCards();
+        setIsModalOpen(false);
+        setEditingCard(null);
+      } catch (err) {
+        console.error('Save card locally error:', err);
+        toast.error('Failed to save card locally.');
+      }
+      return;
+    }
+
     try {
       const isEdit = !!cardData.id;
       const url = isEdit ? `http://localhost:5000/api/cards/${cardData.id}` : 'http://localhost:5000/api/cards';
@@ -163,6 +235,24 @@ const PokeVault = () => {
   };
 
   const handleDeleteCard = async (id) => {
+    if (backendOnline === false) {
+      try {
+        const localData = localStorage.getItem('pv_local_cards');
+        let localCards = localData ? JSON.parse(localData) : [];
+        localCards = localCards.filter(c => c.id !== id);
+        
+        localStorage.setItem('pv_local_cards', JSON.stringify(localCards));
+        setCards(localCards);
+        
+        await fetchCards();
+        toast.success('Card deleted locally!');
+      } catch (err) {
+        console.error('Delete card locally error:', err);
+        toast.error('Failed to delete card.');
+      }
+      return;
+    }
+
     try {
       const response = await fetch(`http://localhost:5000/api/cards/${id}`, {
         method: 'DELETE',
@@ -226,10 +316,10 @@ const PokeVault = () => {
         }}>
           <span style={{ fontSize: '16px' }}>🌐</span>
           <span>
-            <strong style={{ color: '#f8fafc' }}>Pokédex mode</strong>
-            {' '}— Portfolio & Collection require the local backend. Run{' '}
+            <strong style={{ color: '#f8fafc' }}>Offline Mode (Local Storage)</strong>
+            {' '}— Your changes are saved temporarily in the browser. Run{' '}
             <code style={{ background: '#1e293b', padding: '1px 6px', borderRadius: '4px', color: '#38bdf8' }}>npm run dev:full</code>
-            {' '}locally to unlock all features.
+            {' '}locally to use the MySQL database backend.
           </span>
         </div>
       )}
@@ -243,18 +333,18 @@ const PokeVault = () => {
           <button 
             className={`ntab ${currentPage === 'portfolio' ? 'on' : ''}`}
             onClick={() => setCurrentPage('portfolio')}
-            disabled={backendOnline === false}
-            title={backendOnline === false ? 'Requires local backend' : ''}
-            style={backendOnline === false ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+            disabled={backendOnline === null}
+            title={backendOnline === null ? 'Checking connection...' : ''}
+            style={backendOnline === null ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
           >
             📊 Portfolio
           </button>
           <button 
             className={`ntab ${currentPage === 'collection' ? 'on' : ''}`}
             onClick={() => setCurrentPage('collection')}
-            disabled={backendOnline === false}
-            title={backendOnline === false ? 'Requires local backend' : ''}
-            style={backendOnline === false ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+            disabled={backendOnline === null}
+            title={backendOnline === null ? 'Checking connection...' : ''}
+            style={backendOnline === null ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
           >
             📂 Collection
           </button>
@@ -291,7 +381,7 @@ const PokeVault = () => {
 
       <main className="page">
         {currentPage === 'portfolio' ? (
-          <Dashboard cards={fluctuatedCards} history={history} onUpdatePrices={fetchCards} />
+          <Dashboard cards={fluctuatedCards} history={history} onUpdatePrices={fetchCards} backendOnline={backendOnline} />
         ) : currentPage === 'collection' ? (
           <Collection 
             cards={fluctuatedCards} 
@@ -300,6 +390,7 @@ const PokeVault = () => {
             onOpenAddModal={openAddModal} 
             onOpenLightbox={openLightbox}
             onImportExcel={fetchCards}
+            backendOnline={backendOnline}
           />
         ) : (
           <Pokedex cards={fluctuatedCards} />

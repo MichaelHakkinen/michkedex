@@ -120,7 +120,7 @@ const PortfolioChart = ({ history, currency }) => {
   );
 };
 
-const Dashboard = ({ cards, history, onUpdatePrices }) => {
+const Dashboard = ({ cards, history, onUpdatePrices, backendOnline }) => {
   const [isUpdating, setIsUpdating] = React.useState(false);
 
   const handleManualUpdate = async () => {
@@ -202,13 +202,15 @@ const Dashboard = ({ cards, history, onUpdatePrices }) => {
           <button 
             className="btn sm" 
             onClick={handleManualUpdate} 
-            disabled={isUpdating}
+            disabled={isUpdating || backendOnline === false}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            title={backendOnline === false ? 'Syncing prices requires the local backend' : ''}
           >
             {isUpdating ? '⏳ Syncing Prices...' : '🔄 Sync Live Prices'}
           </button>
           <span className="live-pill">
-            <span className="live-dot"></span> Live Market
+            <span className="live-dot" style={backendOnline === false ? { background: '#ef4444' } : {}}></span>
+            {backendOnline === false ? 'Local Storage' : 'Live Market'}
           </span>
         </div>
       </div>
