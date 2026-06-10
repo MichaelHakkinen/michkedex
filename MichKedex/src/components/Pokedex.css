@@ -1,0 +1,196 @@
+/* Region Selector */
+.region-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.region-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--pv-border-primary);
+  background: var(--pv-bg-primary);
+  color: var(--pv-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  font-family: var(--pv-font-sans);
+}
+
+.region-btn:hover {
+  border-color: var(--pv-accent);
+  color: var(--pv-text-primary);
+  background: var(--pv-bg-secondary);
+  transform: translateY(-1px);
+}
+
+.region-btn.active {
+  background: var(--pv-accent);
+  border-color: var(--pv-accent);
+  color: white;
+  box-shadow: 0 2px 8px rgba(var(--pv-accent-rgb, 99, 102, 241), 0.35);
+}
+
+.region-btn-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.region-btn-label {
+  line-height: 1;
+}
+
+.dex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dex-card {
+  background: var(--pv-bg-primary);
+  border: 1px solid var(--pv-border-primary);
+  border-radius: var(--pv-radius-lg);
+  padding: 16px;
+  text-align: center;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: grayscale(1) opacity(0.5);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.dex-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--pv-accent);
+  filter: grayscale(0.5) opacity(0.8);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.dex-card.caught {
+  filter: none;
+  border-color: rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, var(--pv-bg-primary) 0%, rgba(16, 185, 129, 0.03) 100%);
+}
+
+.dex-card.caught:hover {
+  border-color: rgba(16, 185, 129, 0.7);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+}
+
+.dex-card.active {
+  border-color: var(--pv-accent);
+  box-shadow: 0 0 0 2px var(--pv-accent);
+  transform: scale(1.02);
+}
+
+.dex-number {
+  font-family: var(--pv-font-mono);
+  font-size: 10px;
+  color: var(--pv-text-tertiary);
+  font-weight: 600;
+  text-align: left;
+}
+
+.dex-img-wrap {
+  width: 70px;
+  height: 70px;
+  margin: 8px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dex-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.2s;
+}
+
+.dex-card:hover .dex-img {
+  transform: scale(1.1);
+}
+
+.dex-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pv-text-primary);
+  margin-bottom: 8px;
+}
+
+.dex-types {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.dex-type-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  line-height: 1;
+}
+
+.caught-indicator {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #10b981;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Pokemon Types Colors */
+.grass { background: #78C850; }
+.poison { background: #A040A0; }
+.fire { background: #F08030; }
+.flying { background: #A890F0; }
+.water { background: #6890F0; }
+.bug { background: #A8B820; }
+.normal { background: #A8A878; }
+.electric { background: #F8D030; color: #374151; }
+.ground { background: #E0C068; }
+.fairy { background: #EE99AC; }
+.fighting { background: #C03028; }
+.psychic { background: #F85888; }
+.rock { background: #B8A038; }
+.steel { background: #B8B8D0; }
+.ice { background: #98D8D8; color: #374151; }
+.ghost { background: #705898; }
+.dragon { background: #7038F8; }
+.dark { background: #705848; }
+.dark.type { background: #705848; }
+
+.dex-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--pv-bg-primary);
+  border-top: 1px solid var(--pv-border-primary);
+  box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
+  padding: 20px;
+  z-index: 90;
+  max-height: 45vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
