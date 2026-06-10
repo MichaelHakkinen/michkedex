@@ -17,12 +17,13 @@ const PokeVault = () => {
     return saved;
   });
   const [history, setHistory] = useState([]);
-  const [currentPage, setCurrentPage] = useState('portfolio');
+  const [backendOnline, setBackendOnline] = useState(null); // null = checking, true/false = result
+  const [currentPage, setCurrentPage] = useState('pokedex'); // default to pokedex (works offline)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [usdToIdr, setUsdToIdr] = useState(16000);
-  const [liveIndicator, setLiveIndicator] = useState('Active');
+  const [liveIndicator, setLiveIndicator] = useState('Checking...');
 
   // Fetch all cards from Express/MySQL backend
   const fetchCards = useCallback(async () => {
@@ -64,24 +65,34 @@ const PokeVault = () => {
     }
   }, [usdToIdr]);
 
-  // Fetch exchange rate USD -> IDR on mount
+  // Check if backend is reachable, then load exchange rate
   useEffect(() => {
-    const fetchExchangeRate = async () => {
+    const checkBackend = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/exchange-rate');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch('http://localhost:5000/api/exchange-rate', { signal: controller.signal });
+        clearTimeout(timeout);
         if (res.ok) {
           const data = await res.json();
           if (data.rates && data.rates.IDR) {
             setUsdToIdr(data.rates.IDR);
-            console.log('Live exchange rate loaded from local proxy:', data.rates.IDR);
           }
+          setBackendOnline(true);
+          setCurrentPage('portfolio');
+          setLiveIndicator('Connected');
+        } else {
+          setBackendOnline(false);
+          setLiveIndicator('Offline');
         }
       } catch (err) {
-        console.error('Failed to fetch live exchange rate:', err);
+        setBackendOnline(false);
+        setLiveIndicator('Offline');
+        console.info('Backend not reachable — running in Pokédex-only mode.');
       }
     };
-    
-    fetchExchangeRate();
+
+    checkBackend();
   }, []);
 
   // Fetch cards on mount and whenever currency changes
@@ -95,7 +106,6 @@ const PokeVault = () => {
     if (stored) {
       try { setHistory(JSON.parse(stored)); } catch (_) {}
     }
-    setLiveIndicator('Connected');
   }, []);
 
   // Update cards in local state with currency conversion (USD <-> IDR)
@@ -202,6 +212,28 @@ const PokeVault = () => {
 
   return (
     <div className="pokevault-wrapper">
+      {/* Offline banner — shown when GitHub Pages / no local backend */}
+      {backendOnline === false && (
+        <div style={{
+          background: 'linear-gradient(90deg, #1e293b, #0f172a)',
+          borderBottom: '1px solid #334155',
+          padding: '10px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '13px',
+          color: '#94a3b8',
+        }}>
+          <span style={{ fontSize: '16px' }}>🌐</span>
+          <span>
+            <strong style={{ color: '#f8fafc' }}>Pokédex mode</strong>
+            {' '}— Portfolio & Collection require the local backend. Run{' '}
+            <code style={{ background: '#1e293b', padding: '1px 6px', borderRadius: '4px', color: '#38bdf8' }}>npm run dev:full</code>
+            {' '}locally to unlock all features.
+          </span>
+        </div>
+      )}
+
       <header className="topbar">
         <div className="brand">
           🏆 Mich<em>Kedex</em> PokéVault
@@ -211,12 +243,18 @@ const PokeVault = () => {
           <button 
             className={`ntab ${currentPage === 'portfolio' ? 'on' : ''}`}
             onClick={() => setCurrentPage('portfolio')}
+            disabled={backendOnline === false}
+            title={backendOnline === false ? 'Requires local backend' : ''}
+            style={backendOnline === false ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
           >
             📊 Portfolio
           </button>
           <button 
             className={`ntab ${currentPage === 'collection' ? 'on' : ''}`}
             onClick={() => setCurrentPage('collection')}
+            disabled={backendOnline === false}
+            title={backendOnline === false ? 'Requires local backend' : ''}
+            style={backendOnline === false ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
           >
             📂 Collection
           </button>
@@ -245,7 +283,7 @@ const PokeVault = () => {
           </div>
 
           <div className="live-pill">
-            <span className="live-dot"></span>
+            <span className="live-dot" style={backendOnline === false ? { background: '#ef4444' } : {}}></span>
             <span>{liveIndicator}</span>
           </div>
         </div>
